@@ -26,6 +26,15 @@ std::string VectorToString(const std::vector<T>& vec) {
 
 ErrorCode BufferAllocatorManager::AddSegment(const std::string& segment_name,
                                              uint64_t base, uint64_t size) {
+    // Check if parameters are valid before allocating memory.
+    if (base == 0 || size == 0 ||
+        reinterpret_cast<uintptr_t>(base) % facebook::cachelib::Slab::kSize ||
+        size % facebook::cachelib::Slab::kSize) {
+        LOG(ERROR) << "base_address=" << base << " or size=" << size
+                   << " is not aligned to " << facebook::cachelib::Slab::kSize;
+        return ErrorCode::INVALID_PARAMS;
+    }
+
     std::unique_lock<std::shared_mutex> lock(allocator_mutex_);
 
     // Check if segment already exists
@@ -35,13 +44,22 @@ ErrorCode BufferAllocatorManager::AddSegment(const std::string& segment_name,
         return ErrorCode::INVALID_PARAMS;
     }
 
-    auto allocator =
-        std::make_shared<BufferAllocator>(segment_name, base, size);
-    if (!allocator) {
+    std::shared_ptr<BufferAllocator> allocator;
+    try {
+        // SlabAllocator may throw an exception if the size or base is invalid
+        // for the slab allocator.
+        allocator = std::make_shared<BufferAllocator>(segment_name, base, size);
+        if (!allocator) {
+            LOG(ERROR) << "segment_name=" << segment_name
+                       << ", error=failed_to_create_allocator";
+            return ErrorCode::INVALID_PARAMS;
+        }
+    } catch (...) {
         LOG(ERROR) << "segment_name=" << segment_name
-                   << ", error=failed_to_create_allocator";
-        return ErrorCode::INTERNAL_ERROR;
+                   << ", error=unknown_exception_during_allocator_creation";
+        return ErrorCode::INVALID_PARAMS;
     }
+
     VLOG(1) << "segment_name=" << segment_name << ", base=" << base
             << ", size=" << size << ", allocator_ptr=" << allocator.get()
             << ", action=register_buffer";
@@ -66,13 +84,18 @@ ErrorCode BufferAllocatorManager::RemoveSegment(
     return ErrorCode::OK;
 }
 
-MasterService::MasterService()
+MasterService::MasterService(bool enable_gc)
     : buffer_allocator_manager_(std::make_shared<BufferAllocatorManager>()),
-      allocation_strategy_(std::make_shared<RandomAllocationStrategy>()) {
-    // Start the GC thread
-    gc_running_ = true;
-    gc_thread_ = std::thread(&MasterService::GCThreadFunc, this);
-    VLOG(1) << "action=start_gc_thread";
+      allocation_strategy_(std::make_shared<RandomAllocationStrategy>()),
+      enable_gc_(enable_gc) {
+    // Start the GC thread if enabled
+    if (enable_gc_) {
+        gc_running_ = true;
+        gc_thread_ = std::thread(&MasterService::GCThreadFunc, this);
+        VLOG(1) << "action=start_gc_thread";
+    } else {
+        VLOG(1) << "action=gc_disabled";
+    }
 }
 
 MasterService::~MasterService() {
@@ -133,7 +156,12 @@ ErrorCode MasterService::GetReplicaList(
         VLOG(1) << "key=" << key
                 << ", replica_list=" << VectorToString(replica_list);
     }
-    MarkForGC(key, 1000);  // After 1 second, the object will be removed
+
+    // Only mark for GC if enabled
+    if (enable_gc_) {
+        MarkForGC(key, 1000);  // After 1 second, the object will be removed
+    }
+
     return ErrorCode::OK;
 }
 
