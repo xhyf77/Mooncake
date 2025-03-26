@@ -71,6 +71,7 @@ int VLLMAdaptor::initialize(const char *local_hostname,
                             const char *metadata_server, const char *protocol,
                             const char *device_name) {
     auto conn_string = parseConnectionString(metadata_server);
+    LOG(INFO) << "hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh";
     return initializeExt(local_hostname, conn_string.second.c_str(), protocol,
                          device_name, conn_string.first.c_str());
 }
@@ -90,7 +91,7 @@ int VLLMAdaptor::initializeExt(const char *local_hostname,
     int ret = engine_->init(conn_string, local_hostname,
                             hostname_port.first.c_str(), hostname_port.second);
     if (ret) return -1;
-
+    LOG(INFO) << "--------------------------------";
     xport_ = nullptr;
     if (strcmp(protocol, "rdma") == 0) {
         auto device_names = formatDeviceNames(device_name);
@@ -106,10 +107,11 @@ int VLLMAdaptor::initializeExt(const char *local_hostname,
         LOG(ERROR) << "Unsupported protocol";
         return -1;
     }
-
+    LOG(INFO) << "--------------------------------";
     if (!xport_) return -1;
     free_list_.resize(kSlabSizeKBTabLen);
     doBuddyAllocate(kMaxClassId);
+    LOG(INFO) << "--------------------------------";
     return 0;
 }
 
@@ -155,6 +157,7 @@ int VLLMAdaptor::doBuddyAllocate(int class_id) {
 uintptr_t VLLMAdaptor::allocateManagedBuffer(size_t length) {
     std::lock_guard<std::mutex> guard(mutex_);
     int class_id = findClassId(length);
+    LOG(INFO) << "class_id: " << class_id;
     if (class_id < 0) {
         char *buffer = allocateRawBuffer(length);
         if (buffer) large_buffer_list_.insert(buffer);
@@ -183,7 +186,7 @@ int VLLMAdaptor::freeManagedBuffer(uintptr_t buffer_addr, size_t length) {
 }
 
 int VLLMAdaptor::transferSync(const char *target_hostname, uintptr_t buffer,
-                              uintptr_t peer_buffer_address, size_t length) {
+                              uintptr_t peer_buffer_address, size_t length , size_t opcode ) {
     Transport::SegmentHandle handle;
     if (handle_map_.count(target_hostname)) {
         handle = handle_map_[target_hostname];
@@ -195,7 +198,11 @@ int VLLMAdaptor::transferSync(const char *target_hostname, uintptr_t buffer,
 
     auto batch_id = engine_->allocateBatchID(1);
     TransferRequest entry;
-    entry.opcode = TransferRequest::READ;
+    if( opcode == 1 ){
+        entry.opcode = TransferRequest::WRITE;
+    }else{
+        entry.opcode = TransferRequest::READ;
+    }
     entry.length = length;
     entry.source = (void *)buffer;
     entry.target_id = handle;
@@ -216,6 +223,12 @@ int VLLMAdaptor::transferSync(const char *target_hostname, uintptr_t buffer,
             return -1;
         }
     }
+}
+
+uint64_t VLLMAdaptor::Getbuffaddr(const std::string &segment_name) {
+    auto segment_id = engine_->openSegment(segment_name.c_str());
+    auto segment_desc = engine_->getMetadata()->getSegmentDescByID(segment_id);
+    return segment_desc->buffers[0].addr;
 }
 
 int VLLMAdaptor::expRegisterMemory(uintptr_t buffer_addr, size_t capacity) {
@@ -241,7 +254,8 @@ PYBIND11_MODULE(mooncake_vllm_adaptor, m) {
         .def("writeBytesToBuffer", &VLLMAdaptor::writeBytesToBuffer)
         .def("readBytesFromBuffer", &VLLMAdaptor::readBytesFromBuffer)
         .def("expRegisterMemory", &VLLMAdaptor::expRegisterMemory)
-        .def("expUnregisterMemory", &VLLMAdaptor::expUnregisterMemory);
+        .def("expUnregisterMemory", &VLLMAdaptor::expUnregisterMemory)
+        .def("Getbuffaddr", &VLLMAdaptor::Getbuffaddr);
     py::class_<DistributedObjectStore>(m, "MooncakeDistributedStore")
         .def(py::init<>())
         .def("setup", &DistributedObjectStore::setup)

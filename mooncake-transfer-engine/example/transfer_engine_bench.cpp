@@ -68,7 +68,7 @@ DEFINE_string(device_name, "mlx5_2",
 DEFINE_string(nic_priority_matrix, "",
               "Path to RDMA NIC priority matrix file (Advanced)");
 
-DEFINE_string(segment_id, "192.168.3.76", "Segment ID to access data");
+DEFINE_string(segment_id, "127.0.0.1:12345", "Segment ID to access data");
 DEFINE_uint64(buffer_size, 1ull << 30, "total size of data buffer");
 DEFINE_int32(batch_size, 128, "Batch size");
 DEFINE_uint64(block_size, 4096, "Block size for each transfer request");
@@ -389,6 +389,10 @@ int target() {
         memset(addr[i], 'x', FLAGS_buffer_size);
         int rc = engine->registerLocalMemory(addr[i], FLAGS_buffer_size,
                                              "cpu:" + std::to_string(i));
+        LOG(INFO) << "addr[i]" << addr[i];
+        auto segment_id = engine->openSegment(FLAGS_segment_id.c_str());
+        auto segment_desc = engine->getMetadata()->getSegmentDescByID(segment_id);
+        (uint64_t)segment_desc->buffers[0].addr;
         LOG_ASSERT(!rc);
     }
 

@@ -57,13 +57,15 @@ class VLLMAdaptor {
     int freeManagedBuffer(uintptr_t user_tensor, size_t length);
 
     int transferSync(const char *target_hostname, uintptr_t buffer,
-                     uintptr_t peer_buffer_address, size_t length);
+                     uintptr_t peer_buffer_address, size_t length , size_t opcode);
 
     int writeBytesToBuffer(uintptr_t dest_address, char *src_ptr,
                            size_t length) {
         memcpy((void *)dest_address, (void *)src_ptr, length);
         return 0;
     }
+
+    uintptr_t Getbuffaddr(const std::string &segment_name);
 
     pybind11::bytes readBytesFromBuffer(uintptr_t source_address,
                                         size_t length) {

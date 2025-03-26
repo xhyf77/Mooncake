@@ -199,15 +199,8 @@ int TransferEngine::unregisterLocalMemoryBatch(
 
 namespace py = pybind11;
 
-mooncake::Transport* installTransportAdapter(mooncake::TransferEngine &engine, const std::string &proto, const py::list &args) {
-    size_t n = args.size();
-    void **argArray = new void*[n];
-
-    for (size_t i = 0; i < n; ++i) {
-        argArray[i] = PyLong_AsVoidPtr(args[i].ptr()); 
-    }
-
-    return engine.installTransport(proto, argArray);
+void installTransportAdapter(mooncake::TransferEngine &engine, const std::string &proto, const py::list &args) {
+    engine.installTransport(proto, nullptr);
 }
 
 PYBIND11_MODULE(mooncake_transfer_engine, m) {
@@ -258,4 +251,46 @@ PYBIND11_MODULE(mooncake_transfer_engine, m) {
         .def("getMetadata", &mooncake::TransferEngine::getMetadata)
 
         .def("checkOverlap", &mooncake::TransferEngine::checkOverlap);
+
+    py::enum_<mooncake::Transport::TransferRequest::OpCode>(m, "OpCode")
+        .value("READ", mooncake::Transport::TransferRequest::OpCode::READ)
+        .value("WRITE", mooncake::Transport::TransferRequest::OpCode::WRITE)
+        .export_values();
+
+
+    py::class_<mooncake::Transport::TransferRequest>(m, "TransferRequest")
+        .def(py::init<>())
+        .def_readwrite("opcode", &mooncake::Transport::TransferRequest::opcode)
+        .def_readwrite("source", &mooncake::Transport::TransferRequest::source)
+        .def_readwrite("target_id", &mooncake::Transport::TransferRequest::target_id)
+        .def_readwrite("target_offset", &mooncake::Transport::TransferRequest::target_offset)
+        .def_readwrite("length", &mooncake::Transport::TransferRequest::length);
+
+
+    py::enum_<mooncake::Transport::TransferStatusEnum>(m, "TransferStatusEnum")
+        .value("WAITING", mooncake::Transport::TransferStatusEnum::WAITING)
+        .value("PENDING", mooncake::Transport::TransferStatusEnum::PENDING)
+        .value("INVALID", mooncake::Transport::TransferStatusEnum::INVALID)
+        .value("CANCELED", mooncake::Transport::TransferStatusEnum::CANCELED)
+        .value("COMPLETED", mooncake::Transport::TransferStatusEnum::COMPLETED)
+        .value("TIMEOUT", mooncake::Transport::TransferStatusEnum::TIMEOUT)
+        .value("FAILED", mooncake::Transport::TransferStatusEnum::FAILED)
+        .export_values();
+
+
+    py::class_<mooncake::Transport::TransferStatus>(m, "TransferStatus")
+        .def(py::init<>())
+        .def_readwrite("s", &mooncake::Transport::TransferStatus::s)
+        .def_readwrite("transferred_bytes", &mooncake::Transport::TransferStatus::transferred_bytes);
+
+
+    py::class_<mooncake::Transport::BufferEntry>(m, "BufferEntry")
+        .def(py::init<>())
+        .def_readwrite("addr", &mooncake::Transport::BufferEntry::addr)
+        .def_readwrite("length", &mooncake::Transport::BufferEntry::length);
+
+
+    m.attr("SegmentID") = py::int_(0);
+    m.attr("SegmentHandle") = py::int_(0);
+    m.attr("BatchID") = py::int_(0);
 }

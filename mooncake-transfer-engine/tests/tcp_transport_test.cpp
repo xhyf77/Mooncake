@@ -72,7 +72,7 @@ class TCPTransportTest : public ::testing::Test {
         if (env)
             local_server_name = env;
         else
-            local_server_name = "127.0.0.2:12345";
+            local_server_name = "127.0.0.1:12345";
         LOG(INFO) << "local_server_name: " << local_server_name;
     }
 

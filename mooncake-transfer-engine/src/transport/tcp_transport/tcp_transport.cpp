@@ -55,6 +55,8 @@ struct Session : public std::enable_shared_from_this<Session> {
         local_buffer_ = (char *)buffer;
         header_.addr = htole64(dest_addr);
         header_.size = htole64(size);
+        LOG(INFO) << "local_buffer_ = " << (void *)local_buffer_;
+        LOG(INFO) << "dest_addr = " << dest_addr;
         header_.opcode = (uint8_t)opcode;
         total_transferred_bytes_ = 0;
         writeHeader();
@@ -241,6 +243,8 @@ int TcpTransport::registerLocalMemory(void *addr, size_t length,
                                       bool remote_accessible,
                                       bool update_metadata) {
     (void)remote_accessible;
+    LOG(INFO) << "TcpTransport: register local memory, addr: " << addr
+              << " length: " << length << " location: " << location;
     BufferDesc buffer_desc;
     buffer_desc.name = local_server_name_;
     buffer_desc.addr = (uint64_t)addr;
