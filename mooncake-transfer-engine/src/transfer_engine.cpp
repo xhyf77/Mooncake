@@ -10,8 +10,8 @@
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
-// limitations under the License.
-
+// limitations under the License.   
+#include <pybind11/pybind11.h>
 #include "transfer_engine.h"
 
 #include "transport/transport.h"
@@ -196,3 +196,66 @@ int TransferEngine::unregisterLocalMemoryBatch(
     return 0;
 }
 }  // namespace mooncake
+
+namespace py = pybind11;
+
+mooncake::Transport* installTransportAdapter(mooncake::TransferEngine &engine, const std::string &proto, const py::list &args) {
+    size_t n = args.size();
+    void **argArray = new void*[n];
+
+    for (size_t i = 0; i < n; ++i) {
+        argArray[i] = PyLong_AsVoidPtr(args[i].ptr()); 
+    }
+
+    return engine.installTransport(proto, argArray);
+}
+
+PYBIND11_MODULE(mooncake_transfer_engine, m) {
+    py::class_<mooncake::TransferEngine>(m, "TransferEngine")
+        .def(py::init<bool>(), py::arg("auto_discover") = false)
+
+        .def("init", &mooncake::TransferEngine::init,
+             py::arg("metadata_conn_string"),
+             py::arg("local_server_name"),
+             py::arg("ip_or_host_name"),
+             py::arg("rpc_port") = 12345)
+        
+        .def("installTransport", &installTransportAdapter,
+            py::arg("proto"), py::arg("args"))
+
+        .def("freeEngine", &mooncake::TransferEngine::freeEngine)
+        
+        .def("uninstallTransport", &mooncake::TransferEngine::uninstallTransport)
+
+        .def("openSegment", &mooncake::TransferEngine::openSegment)
+
+        .def("closeSegment", &mooncake::TransferEngine::closeSegment)
+
+        .def("registerLocalMemory", &mooncake::TransferEngine::registerLocalMemory,
+             py::arg("addr"), py::arg("length"),
+             py::arg("location"),
+             py::arg("remote_accessible") = true,
+             py::arg("update_metadata") = true)
+
+        .def("unregisterLocalMemory", &mooncake::TransferEngine::unregisterLocalMemory,
+             py::arg("addr"), py::arg("update_metadata") = true)
+
+        .def("registerLocalMemoryBatch", &mooncake::TransferEngine::registerLocalMemoryBatch)
+
+        .def("unregisterLocalMemoryBatch", &mooncake::TransferEngine::unregisterLocalMemoryBatch)
+
+        .def("allocateBatchID", &mooncake::TransferEngine::allocateBatchID)
+
+        .def("freeBatchID", &mooncake::TransferEngine::freeBatchID)
+
+        .def("submitTransfer", &mooncake::TransferEngine::submitTransfer)
+
+        .def("getTransferStatus", &mooncake::TransferEngine::getTransferStatus)
+
+        .def("syncSegmentCache", &mooncake::TransferEngine::syncSegmentCache,
+             py::arg("segment_name") = "")
+
+        .def("getMetadata", &mooncake::TransferEngine::getMetadata)
+
+        .def("checkOverlap", &mooncake::TransferEngine::checkOverlap);
+}
