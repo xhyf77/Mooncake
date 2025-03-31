@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*'
 
+env:
+  SETUPTOOLS_SCM_PRETEND_VERSION_FOR_mooncake: ${{ github.ref_name }}
+
 jobs:
   build-and-release:
     runs-on: ubuntu-22.04
