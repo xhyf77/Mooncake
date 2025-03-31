@@ -40,8 +40,7 @@ jobs:
         cp build/mooncake-integration/*.so mooncake-wheel/mooncake
         cp build/mooncake-store/src/mooncake_master mooncake-wheel/mooncake
         cp thirdparties/etcd-cpp-apiv3/build/src/libetcd-cpp-api.so mooncake-wheel/mooncake/lib_so/
-        cd mooncake-wheel
-        python -m build
+        python -m build mooncake-wheel/
 
     - name: Upload wheel to GitHub Release
       uses: softprops/action-gh-release@v1
