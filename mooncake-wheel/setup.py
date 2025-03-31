@@ -10,7 +10,8 @@ python_version = f">={sys.version_info.major}.{sys.version_info.minor}"
 
 setup(
     name="mooncake",
-    version="0.1.0",
+    use_scm_version={"root": ".", "relative_to": __file__},
+    setup_requires=["setuptools_scm"],
     packages=find_packages(),
     package_data={"mooncake": [
         "*.so",
@@ -21,7 +22,7 @@ setup(
     zip_safe=False,
     distclass=BinaryDistribution,
     author="Mooncake",
-    description="Python binding of a Mooncake library using pybind11",
+    description="Prebuilt Python wheel for Mooncake, providing native bindings for distributed storage and transfer",
     classifiers=[
         "Programming Language :: Python :: 3",
         "Programming Language :: C++",
